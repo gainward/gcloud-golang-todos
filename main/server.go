@@ -11,7 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build appenginevm
 // This package implements a simple HTTP server providing a REST API to a todo
 // handler.
 //
@@ -37,9 +36,13 @@ import (
 	"github.com/GoogleCloudPlatform/gcloud-golang-todos/todo"
 	"github.com/gorilla/mux"
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/appengine"
-	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/urlfetch"
+	"google.golang.org/cloud"
+	"google.golang.org/cloud/datastore"
 )
 
 const PathPrefix = "/api/todos"
@@ -80,8 +83,8 @@ func init() {
 //          {"id": 1, "title": "Learn Go", "completed": false},
 //          {"id": 2, "title": "Buy bread", "completed": true}
 //        ]
-func ListTodos(w http.ResponseWriter, r *http.Request, c context.Context) error {
-	res, err := todo.All(c)
+func ListTodos(w http.ResponseWriter, r *http.Request, cc context.Context) error {
+	res, err := todo.All(cc)
 	if err != nil {
 		return err
 	}
@@ -99,16 +102,16 @@ func ListTodos(w http.ResponseWriter, r *http.Request, c context.Context) error 
 //
 //   req: POST /todos/ {"title": "Buy bread"}
 //   res: 201
-func NewTodo(w http.ResponseWriter, r *http.Request, c context.Context) error {
+func NewTodo(w http.ResponseWriter, r *http.Request, cc context.Context) error {
 	var req struct{ Title string }
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return badRequestError{err}
 	}
-	t, err := todo.NewTodo(c, req.Title)
+	t, err := todo.NewTodo(cc, req.Title)
 	if err != nil {
 		return badRequestError{err}
 	}
-	if err = t.Save(c); err != nil {
+	if err = t.Save(cc); err != nil {
 		return err
 	}
 	return writeJSON(w, http.StatusCreated, t)
@@ -135,12 +138,12 @@ func parseKey(r *http.Request) (*datastore.Key, error) {
 //
 //   req: GET /todos/42
 //   res: 404 todo not found
-func GetTodo(w http.ResponseWriter, r *http.Request, c context.Context) error {
+func GetTodo(w http.ResponseWriter, r *http.Request, cc context.Context) error {
 	k, err := parseKey(r)
 	if err != nil {
 		return badRequestError{err}
 	}
-	t, err := todo.Get(c, k)
+	t, err := todo.Get(cc, k)
 	if err != nil {
 		return errTodoNotFound
 	}
@@ -154,7 +157,7 @@ func GetTodo(w http.ResponseWriter, r *http.Request, c context.Context) error {
 //
 //   req: PUT /todos/1 {"title": "Learn Go", "completed": true}
 //   res: 200
-func UpdateTodo(w http.ResponseWriter, r *http.Request, c context.Context) error {
+func UpdateTodo(w http.ResponseWriter, r *http.Request, cc context.Context) error {
 	k, err := parseKey(r)
 	if err != nil {
 		return badRequestError{err}
@@ -164,10 +167,10 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request, c context.Context) error
 		return badRequestError{err}
 	}
 	t.Key = k
-	if _, err := todo.Get(c, k); err != nil {
+	if _, err := todo.Get(cc, k); err != nil {
 		return errTodoNotFound
 	}
-	if err = t.Save(c); err != nil {
+	if err = t.Save(cc); err != nil {
 		return err
 	}
 	return writeJSON(w, http.StatusOK, t)
@@ -187,12 +190,12 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request, c context.Context) error
 //
 //   req: DELETE /todos/42
 //   res: 404 todo not found
-func DeleteTodo(w http.ResponseWriter, r *http.Request, c context.Context) error {
+func DeleteTodo(w http.ResponseWriter, r *http.Request, cc context.Context) error {
 	k, err := parseKey(r)
 	if err != nil {
 		return badRequestError{err}
 	}
-	if err := todo.Delete(c, k); err != nil {
+	if err := todo.Delete(cc, k); err != nil {
 		return errTodoNotFound
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -210,8 +213,8 @@ func DeleteTodo(w http.ResponseWriter, r *http.Request, c context.Context) error
 //
 //   req: DELETE /todos (Some error happens)
 //   res: 500
-func DeleteCompletedTodos(w http.ResponseWriter, r *http.Request, c context.Context) error {
-	if err := todo.DeleteCompleted(c); err != nil {
+func DeleteCompletedTodos(w http.ResponseWriter, r *http.Request, cc context.Context) error {
+	if err := todo.DeleteCompleted(cc); err != nil {
 		return err
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -259,13 +262,27 @@ func mergeJSONOrDie(files ...string) []byte {
 	return b
 }
 
+// newCloudContext builds a context suitable for calling GCloud-based APIs.
+// It should be passed a context from appengine.NewContext.
+func newCloudContext(c context.Context) context.Context {
+	hc := &http.Client{
+		Transport: &oauth2.Transport{
+			Source: google.AppEngineTokenSource(c,
+				datastore.ScopeDatastore,
+				datastore.ScopeUserEmail),
+			Base: &urlfetch.Transport{Context: c},
+		},
+	}
+	return cloud.NewContext(appengine.AppID(c), hc)
+}
+
 // errorHandler wraps a function returning an error by handling the error and returning a http.Handler.
 // If the error is of the one of the types defined above, it is handled as described for every type.
 // If the error is of another type, it is considered as an internal error and its message is logged.
 func errorHandler(f func(w http.ResponseWriter, r *http.Request, c context.Context) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := appengine.NewContext(r)
-		err := f(w, r, c)
+		err := f(w, r, newCloudContext(c))
 		if err == nil {
 			return
 		}

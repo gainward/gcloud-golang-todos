@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"golang.org/x/net/context"
-	"google.golang.org/appengine/datastore"
+	"google.golang.org/cloud/datastore"
 )
 
 // getTodoGroupKey returns a key representing the parent of all Todo entities.

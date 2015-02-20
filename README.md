@@ -14,6 +14,7 @@ the Developer Preview commands and the App Engine SDK for Go.
     ```
 
 1. Create a new cloud project on [console.developers.google.com](https://console.developers.google.com).
+1. Enable the [Cloud Datastore API](https://console.developers.google.com/project/gcloud-golang-todos/apiui/apiview/datastore/overview)
 1. Export your project id:
     
     ```sh
@@ -34,6 +35,12 @@ to fetch its codebase separately:
     git submodule update --init
     ```
 
+1. Download a JSON copy of your project's [Service Account Key](https://console.developers.google.com/project/gcloud-golang-todos/apiui/credential) and move it into the project directory as `key.json`.
+
+    ```sh
+    cp ${SERVICE_ACCOUNT_KEY} $GOPATH/src/github.com/GoogleCloudPlatform/gcloud-golang-todos/key.json
+    ```
+
 
 ### Running
 
@@ -48,7 +55,7 @@ $(boot2docker shellinit)
 gcloud preview app setup-managed-vms
 
 # Run the app.
-gcloud preview app run main
+gcloud preview app run --appidentity-private-key-path key.json main
 
 # Open http://localhost:8080/examples/angularjs/index.html in the browser!
 ```
