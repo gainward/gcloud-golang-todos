@@ -2,3 +2,6 @@
 *.swp
 
 tags
+
+key.json
+key.pem
