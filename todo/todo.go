@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"golang.org/x/net/context"
-	"google.golang.org/appengine/datastore"
+	"google.golang.org/cloud/datastore"
 )
 
 // getTodoGroupKey returns a key representing the parent of all Todo entities.
@@ -42,7 +42,7 @@ func (t *Todo) Save(c context.Context) error {
 	k := datastore.NewKey(c, "Todo", "", t.ID, getTodoGroupKey(c))
 	k, err := datastore.Put(c, k, t)
 	if err == nil {
-		t.ID = k.IntID()
+		t.ID = k.ID()
 	}
 	return err
 }
@@ -58,7 +58,7 @@ func All(c context.Context) ([]*Todo, error) {
 	keys, err := q.GetAll(c, &todos)
 	if err == nil {
 		for i := 0; i < len(keys); i++ {
-			todos[i].ID = keys[i].IntID()
+			todos[i].ID = keys[i].ID()
 		}
 	}
 	return todos, err
@@ -73,7 +73,7 @@ func Get(c context.Context, id int64) (*Todo, bool) {
 	todo := &Todo{}
 	err := datastore.Get(c, k, todo)
 	if err != nil {
-		todo.ID = k.IntID()
+		todo.ID = k.ID()
 	}
 	return todo, err == nil
 }
