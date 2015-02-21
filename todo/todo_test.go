@@ -16,39 +16,42 @@ package todo
 import (
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"testing"
 
+	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/cloud"
 	"google.golang.org/cloud/datastore"
 )
 
-const jsonFile = "key.json"
+const (
+	envProjID     = "GCLOUD_GOLANG_TODOS_PROJECT_ID"
+	envPrivateKey = "GCLOUD_GOLANG_TODOS_KEY"
+)
 
-var CTX cloud.Context
+var CTX context.Context
 
-func newClient() (*http.Client, error) {
-	jsonKey, err := ioutil.ReadFile(jsonFile)
-	if err != nil {
-		return nil, err
+func Context(scopes ...string) context.Context {
+	key, projID := os.Getenv(envPrivateKey), os.Getenv(envProjID)
+	if key == "" || projID == "" {
+		log.Fatalf("%v and %v must be set. See CONTRIBUTING.md.",
+			envProjID, envPrivateKey)
 	}
-	conf, err := google.JWTConfigFromJSON(
-		jsonKey, datastore.ScopeDatastore, datastore.ScopeUserEmail)
+	jsonKey, err := ioutil.ReadFile(key)
 	if err != nil {
-		return nil, err
+		log.Fatalf("Cannot read the JSON key file, err: %v", err)
 	}
-	return conf.Client(oauth2.NoContext), nil
+	conf, err := google.JWTConfigFromJSON(jsonKey, scopes...)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return cloud.NewContext(projID, conf.Client(oauth2.NoContext))
 }
 
 func TestMain(m *testing.M) {
-	hc, err := newClient()
-	if err != nil {
-		log.Fatalf("Could not create http client: %v", err)
-
-	}
-	CTX = cloud.NewContext("gcloud-golang-todos", hc)
+	CTX = Context(datastore.ScopeDatastore, datastore.ScopeUserEmail)
 	os.Exit(m.Run())
 }
 

@@ -1,0 +1,8 @@
+language: go
+go:
+- 1.4
+- tip
+install:
+- go get -v github.com/GoogleCloudPlatform/gcloud-golang-todos
+script:
+- GCLOUD_GOLANG_TODOS_PROJECT_ID="gcloud-golang-todos" GCLOUD_TESTS_GOLANG_KEY="$(pwd)/key.json" go test github.com/GoogleCloudPlatform/gcloud-golang-todos/todo
