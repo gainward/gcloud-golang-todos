@@ -33,10 +33,18 @@ const (
 
 var CTX context.Context
 
+func newTodoOrFatal(t *testing.T, title string) *Todo {
+	todo, err := NewTodo(title)
+	if err != nil {
+		t.Fatalf("Could not make new todo: %v", err)
+	}
+	return todo
+}
+
 func Context(scopes ...string) context.Context {
 	key, projID := os.Getenv(envPrivateKey), os.Getenv(envProjID)
 	if key == "" || projID == "" {
-		log.Fatalf("%v and %v must be set. See CONTRIBUTING.md.",
+		log.Fatalf("%v and %v must be set. See CONTRIBUTING.md",
 			envProjID, envPrivateKey)
 	}
 	jsonKey, err := ioutil.ReadFile(key)
@@ -53,6 +61,24 @@ func Context(scopes ...string) context.Context {
 func TestMain(m *testing.M) {
 	CTX = Context(datastore.ScopeDatastore, datastore.ScopeUserEmail)
 	os.Exit(m.Run())
+}
+
+func TestNewTodo(t *testing.T) {
+	title := "foo"
+	todo := newTodoOrFatal(t, title)
+	if todo.Title != title {
+		t.Errorf("Expected title %q, got %q", title, todo.Title)
+	}
+	if todo.Done {
+		t.Error("New todo should not be done")
+	}
+}
+
+func TestNewTodoEmptyTitle(t *testing.T) {
+	_, err := NewTodo("")
+	if err == nil {
+		t.Error("Expected 'empty title' err, got nil")
+	}
 }
 
 func TestSave(t *testing.T) {
