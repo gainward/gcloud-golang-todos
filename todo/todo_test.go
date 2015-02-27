@@ -81,6 +81,36 @@ func TestNewTodoEmptyTitle(t *testing.T) {
 	}
 }
 
-func TestSave(t *testing.T) {
+func TestSaveGetDelete(t *testing.T) {
+	todo := newTodoOrFatal(t, "foo")
+	todo.Save(CTX)
+	if todo.ID == 0 {
+		t.Errorf("Saved todo's ID should be set.")
+	}
+	_, ok := Get(CTX, todo.ID)
+	if !ok {
+		t.Errorf("Todo should be found!")
+	}
+	if ok := Delete(CTX, todo.ID); !ok {
+		t.Errorf("Failed to delete todo %v", todo.ID)
+	}
+}
 
+func TestSaveAndAll(t *testing.T) {
+	titles := []string{"foo", "bar"}
+	for _, title := range titles {
+		newTodoOrFatal(t, title).Save(CTX)
+	}
+	todos, err := All(CTX)
+	if err != nil {
+		t.Errorf("Failed to retrieve all todos: %v", err)
+	}
+	if len(todos) != len(titles) {
+		t.Errorf("Expected %v todos, got %v", len(titles), len(todos))
+	}
+	for _, todo := range todos {
+		if ok := Delete(CTX, todo.ID); !ok {
+			t.Errorf("Failed to delete todo %v", todo.ID)
+		}
+	}
 }

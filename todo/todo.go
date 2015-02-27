@@ -72,7 +72,7 @@ func Get(c context.Context, id int64) (*Todo, bool) {
 	k := datastore.NewKey(c, "Todo", "", id, getTodoGroupKey(c))
 	todo := &Todo{}
 	err := datastore.Get(c, k, todo)
-	if err != nil {
+	if err == nil {
 		todo.ID = k.ID()
 	}
 	return todo, err == nil
