@@ -7,6 +7,10 @@ vm: true
 manual_scaling:
   instances: 1
 
+network:
+  forwarded_ports:
+  - 5050
+
 handlers:
 - url: /examples
   static_dir: static/todomvc/examples
