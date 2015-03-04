@@ -16,7 +16,7 @@ func timeoutContext() (context.Context, context.CancelFunc) {
 func main() {
 	log.Printf("Before dial.")
 	//	conn, err := grpc.Dial("localhost:5050")
-	conn, err := grpc.Dial("192.168.59.103:5050")
+	conn, err := grpc.Dial("192.168.59.103:5050", grpc.WithTimeout(1*time.Second))
 	if err != nil {
 		log.Fatalf("Error dialing: %v", err)
 	}
